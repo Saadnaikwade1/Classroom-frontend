@@ -26,7 +26,7 @@
         @apply relative w-full max-h-9 md:max-w-72;
 
         .search-icon {
-            @apply absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary;
+            @apply absolute left-3 top-1/3 -translate-y-1/2 h-4 w-4 text-primary;
         }
     }
 
@@ -590,3 +590,4 @@
     @apply bg-background text-foreground;
   }
 }
+
