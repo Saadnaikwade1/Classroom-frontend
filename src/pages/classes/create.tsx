@@ -1,19 +1,9 @@
-"use client";
-
-import { useMemo } from "react";
 import { useForm } from "@refinedev/react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useBack, useList } from "@refinedev/core";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import z from "zod";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-
 import {
   Form,
   FormControl,
@@ -22,7 +12,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-
 import {
   Select,
   SelectContent,
@@ -34,10 +23,13 @@ import {
 import { CreateView } from "@/components/refine-ui/views/create-view";
 import { Breadcrumb } from "@/components/refine-ui/layout/breadcrumb";
 
-
+import { Textarea } from "@/components/ui/textarea";
+import { useBack, useList } from "@refinedev/core";
+import { Loader2 } from "lucide-react";
 import { classSchema } from "@/lib/schema";
-import { Subject, User } from "@/types";
 import UploadWidget from "@/components/upload-widget";
+import { Subject, User } from "@/types";
+import z from "zod";
 
 const ClassesCreate = () => {
   const back = useBack();
@@ -56,55 +48,54 @@ const ClassesCreate = () => {
   const {
     refineCore: { onFinish },
     handleSubmit,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
     control,
   } = form;
 
   const bannerPublicId = form.watch("bannerCldPubId");
 
-  // Fetch subjects
-  const { query: subjectsQuery } = useList<Subject>({
-    resource: "subjects",
-    pagination: { pageSize: 100 },
-  });
-
-  // Fetch teachers
-  const { query: teachersQuery } = useList<User>({
-    resource: "users",
-    filters: [{ field: "role", operator: "eq", value: "teacher" }],
-    pagination: { pageSize: 100 },
-  });
-
-  const subjects = useMemo(
-    () => subjectsQuery.data?.data || [],
-    [subjectsQuery.data]
-  );
-
-  const teachers = useMemo(
-    () => teachersQuery.data?.data || [],
-    [teachersQuery.data]
-  );
-
   const onSubmit = async (values: z.infer<typeof classSchema>) => {
     try {
       await onFinish(values);
-      toast.success("Class created successfully!");
-      back();
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to create class");
+      console.error("Error creating class:", error);
     }
   };
 
-  const handleNumberChange = (value: string) =>
-    value ? Number(value) : undefined;
+  // Fetch subjects list
+  const { query: subjectsQuery } = useList<Subject>({
+    resource: "subjects",
+    pagination: {
+      pageSize: 100,
+    },
+  });
+
+  // Fetch teachers list
+  const { query: teachersQuery } = useList<User>({
+    resource: "users",
+    filters: [
+      {
+        field: "role",
+        operator: "eq",
+        value: "teacher",
+      },
+    ],
+    pagination: {
+      pageSize: 100,
+    },
+  });
+
+  const teachers = teachersQuery.data?.data || [];
+  const teachersLoading = teachersQuery.isLoading;
+
+  const subjects = subjectsQuery.data?.data || [];
+  const subjectsLoading = subjectsQuery.isLoading;
 
   return (
     <CreateView className="class-view">
       <Breadcrumb />
 
       <h1 className="page-title">Create a Class</h1>
-
       <div className="intro-row">
         <p>Provide the required information below to add a class.</p>
         <Button onClick={() => back()}>Go Back</Button>
@@ -114,25 +105,25 @@ const ClassesCreate = () => {
 
       <div className="my-4 flex items-center">
         <Card className="class-form-card">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">
+          <CardHeader className="relative z-10">
+            <CardTitle className="text-2xl pb-0 font-bold text-gradient-orange">
               Fill out form
             </CardTitle>
           </CardHeader>
 
           <Separator />
 
-          <CardContent className="mt-6">
+          <CardContent className="mt-7">
             <Form {...form}>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
-                {/* Banner Upload */}
                 <FormField
                   control={control}
                   name="bannerUrl"
-                  render={({ field, fieldState }) => (
+                  render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Banner Image *</FormLabel>
+                      <FormLabel>
+                        Banner Image <span className="text-orange-600">*</span>
+                      </FormLabel>
                       <FormControl>
                         <UploadWidget
                           value={
@@ -146,70 +137,79 @@ const ClassesCreate = () => {
                           onChange={(file) => {
                             if (file) {
                               field.onChange(file.url);
-                              form.setValue("bannerCldPubId", file.publicId);
+                              form.setValue("bannerCldPubId", file.publicId, {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              });
                             } else {
                               field.onChange("");
-                              form.setValue("bannerCldPubId", "");
+                              form.setValue("bannerCldPubId", "", {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              });
                             }
                           }}
                         />
                       </FormControl>
                       <FormMessage />
-                      {fieldState.error && (
-                        <p className="text-sm text-red-500">
-                          {fieldState.error.message}
+                      {errors.bannerCldPubId && !errors.bannerUrl && (
+                        <p className="text-destructive text-sm">
+                          {errors.bannerCldPubId.message?.toString()}
                         </p>
                       )}
                     </FormItem>
                   )}
                 />
 
-                {/* Class Name */}
                 <FormField
                   control={control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Class Name *</FormLabel>
+                      <FormLabel>
+                        Class Name <span className="text-orange-600">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input placeholder="Intro to Biology" {...field} />
+                        <Input
+                          placeholder="Introduction to Biology - Section A"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Subject & Teacher */}
                 <div className="grid sm:grid-cols-2 gap-4">
-
                   <FormField
                     control={control}
                     name="subjectId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Subject *</FormLabel>
+                        <FormLabel>
+                          Subject <span className="text-orange-600">*</span>
+                        </FormLabel>
                         <Select
-                          onValueChange={(v) => field.onChange(Number(v))}
+                          onValueChange={(value) =>
+                            field.onChange(Number(value))
+                          }
                           value={field.value?.toString()}
+                          disabled={subjectsLoading}
                         >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select subject" />
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a subject" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {subjectsQuery.isLoading ? (
-                              <p className="p-2 text-sm">Loading...</p>
-                            ) : (
-                              subjects.map((s) => (
-                                <SelectItem
-                                  key={s.id}
-                                  value={s.id.toString()}
-                                >
-                                  {s.name}
-                                </SelectItem>
-                              ))
-                            )}
+                            {subjects.map((subject) => (
+                              <SelectItem
+                                key={subject.id}
+                                value={subject.id.toString()}
+                              >
+                                {subject.name} ({subject.code})
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -222,57 +222,55 @@ const ClassesCreate = () => {
                     name="teacherId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Teacher *</FormLabel>
+                        <FormLabel>
+                          Teacher <span className="text-orange-600">*</span>
+                        </FormLabel>
                         <Select
-                          onValueChange={(v) => field.onChange(Number(v))}
+                          onValueChange={field.onChange}
                           value={field.value?.toString()}
+                          disabled={teachersLoading}
                         >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select teacher" />
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a teacher" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {teachersQuery.isLoading ? (
-                              <p className="p-2 text-sm">Loading...</p>
-                            ) : (
-                              teachers.map((t) => (
-                                <SelectItem
-                                  key={t.id}
-                                  value={t.id.toString()}
-                                >
-                                  {t.name}
-                                </SelectItem>
-                              ))
-                            )}
+                            {teachers.map((teacher) => (
+                              <SelectItem key={teacher.id} value={teacher.id}>
+                                {teacher.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
                 </div>
 
-                {/* Capacity & Status */}
                 <div className="grid sm:grid-cols-2 gap-4">
-
                   <FormField
                     control={control}
                     name="capacity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Capacity *</FormLabel>
+                        <FormLabel>
+                          Capacity <span className="text-orange-600">*</span>
+                        </FormLabel>
                         <FormControl>
                           <Input
                             type="number"
+                            min={1}
                             placeholder="30"
-                            value={field.value ?? ""}
-                            onChange={(e) =>
-                              field.onChange(
-                                handleNumberChange(e.target.value)
-                              )
-                            }
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value ? Number(value) : undefined);
+                            }}
+                            value={(field.value as number | undefined) ?? ""}
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
                           />
                         </FormControl>
                         <FormMessage />
@@ -285,14 +283,16 @@ const ClassesCreate = () => {
                     name="status"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status *</FormLabel>
+                        <FormLabel>
+                          Status <span className="text-orange-600">*</span>
+                        </FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -304,19 +304,19 @@ const ClassesCreate = () => {
                       </FormItem>
                     )}
                   />
-
                 </div>
 
-                {/* Description */}
                 <FormField
                   control={control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description *</FormLabel>
+                      <FormLabel>
+                        Description <span className="text-orange-600">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter class description..."
+                          placeholder="Brief description about the class"
                           {...field}
                         />
                       </FormControl>
@@ -327,17 +327,16 @@ const ClassesCreate = () => {
 
                 <Separator />
 
-                <Button type="submit" className="w-full">
+                <Button type="submit" size="lg" className="w-full">
                   {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      Creating...
-                      <Loader2 className="animate-spin" size={18} />
-                    </span>
+                    <div className="flex gap-1">
+                      <span>Creating Class...</span>
+                      <Loader2 className="inline-block ml-2 animate-spin" />
+                    </div>
                   ) : (
                     "Create Class"
                   )}
                 </Button>
-
               </form>
             </Form>
           </CardContent>
